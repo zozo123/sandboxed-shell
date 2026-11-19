@@ -3,14 +3,14 @@ name: "sandboxed-shell"
 id: "sandboxed-shell"
 title: "Sandboxed Shell Guide"
 summary: "Explains the sandbox that shell commands run in: where the project lives, what is copied, and what to do when a command fails there."
-description: "Use when shell commands run in a sandbox through the Islo plugin and something behaves differently than on the user's machine: a path does not exist, a tool is missing, a file did not appear, a command exits with 124 or 125, or the user asks where commands run. Explains the copied project directory, which names are not copied, and how the user can check or reset the sandbox. Does not create, configure or delete sandboxes, and does not cover CoCo's built-in /sandbox or cortex --cloud. Triggers: sandboxed shell, Islo sandbox, OpenShell sandbox, where does this command run, file not copied, exit code 125."
+description: "Use when shell commands run in an OpenShell sandbox through the sandboxed-shell plugin and something behaves differently than on the user's machine: a path does not exist, a tool is missing, a file did not appear, a command exits with 124 or 125, or the user asks where commands run. Explains the copied project directory, which names are not copied, and how the user can check or reset the sandbox. Does not create, configure or delete sandboxes, and does not cover CoCo's built-in /sandbox or cortex --cloud. Triggers: sandboxed shell, OpenShell sandbox, where does this command run, file not copied, exit code 125."
 tools:
   - bash
 prompt: "Where do shell commands run in this session, and what can they reach on my machine?"
 language: "en"
 status: "Published"
-author: "Islo Labs"
-authors: ["Islo Labs"]
+author: "zozo123"
+authors: ["zozo123"]
 type: "community"
 categories: ["Security", "Developer Tools"]
 ---

@@ -177,7 +177,7 @@ class EndToEnd(unittest.TestCase):
     # ------------------------------------------------------- failure behaviour
     def test_13_no_backend_means_blocked_not_run_here(self):
         bare = dict(self.env, PATH="/usr/bin:/bin", SBX_STATE_DIR=os.path.join(self.tmp, "state-none"))
-        if shutil.which("openshell", path=bare["PATH"]) or shutil.which("islo", path=bare["PATH"]):
+        if shutil.which("openshell", path=bare["PATH"]):
             self.skipTest("a backend CLI lives in /usr/bin")
         result = run_tool(f"touch {shlex.quote(self.host_canary)}", self.project, env=bare)
         self.assertFalse(result.hook_failed_open)
@@ -192,7 +192,7 @@ class EndToEnd(unittest.TestCase):
         self.assertEqual(self.tool("echo 2 >> counter.txt; wc -l < counter.txt").stdout.strip(), "2")
         status = json.loads(subprocess.run([sys.executable, str(RUNNER), "status", "--root", self.project],
                                            env=self.env, stdout=subprocess.PIPE, check=True).stdout)
-        backend_cli = {"openshell": ["openshell", "sandbox", "delete"], "islo": ["islo", "rm"]}[status["backend"]]
+        backend_cli = {"openshell": ["openshell", "sandbox", "delete"]}[status["backend"]]
         subprocess.run(backend_cli + [status["sandbox"]], env=self.env, stdin=subprocess.DEVNULL,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, cwd=self.tmp)
         time.sleep(2)
@@ -382,7 +382,7 @@ class EndToEnd(unittest.TestCase):
         self.assertEqual(self.tool("rm -f twice.txt; true").returncode, 0)
         status = json.loads(subprocess.run([sys.executable, str(RUNNER), "status", "--root", self.project],
                                            env=self.env, stdout=subprocess.PIPE, check=True).stdout)
-        backend_cli = {"openshell": ["openshell", "sandbox", "delete"], "islo": ["islo", "rm"]}[status["backend"]]
+        backend_cli = {"openshell": ["openshell", "sandbox", "delete"]}[status["backend"]]
         holder = {}
         worker = threading.Thread(target=lambda: holder.update(
             result=self.tool("sleep 8; echo ran >> twice.txt", session="replaced")))

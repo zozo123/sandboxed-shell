@@ -209,7 +209,6 @@ class ClaudeCodeFlavour(unittest.TestCase):
         flavour = builder.build(Path(tmp) / builder.NAME)
         self.assertFalse((flavour / ".cortex-plugin").exists())
         manifest = json.loads((flavour / ".claude-plugin" / "plugin.json").read_text())
-        # islo-labs/skills already ships a Claude Code plugin named "islo"; this one must not collide with it.
         self.assertEqual(manifest["name"], "sandboxed-shell")
         self.assertNotIn("CoCo", manifest["description"])
         self.assertIn("Claude Code", manifest["description"])

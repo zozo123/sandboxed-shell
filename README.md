@@ -1,9 +1,9 @@
 # sandboxed-shell
 
-Run your coding agent's shell commands in a sandbox instead of on your machine. Works with
-Snowflake's CoCo CLI and with Claude Code. The sandbox is local with
-[OpenShell](https://docs.nvidia.com/openshell/latest/) by default, or an
-[Islo](https://islo.dev) cloud sandbox if you choose it.
+Run your coding agent's shell commands in an [NVIDIA OpenShell](https://docs.nvidia.com/openshell/latest/)
+sandbox instead of on your machine. Works with Snowflake's CoCo CLI and with Claude Code.
+OpenShell is open source (Apache-2.0) and runs on your machine or your own hosts, so your
+project does not leave them.
 
 ## Three ways to use it
 
@@ -18,12 +18,12 @@ Snowflake's CoCo CLI and with Claude Code. The sandbox is local with
 ### CoCo CLI (plugin)
 
 ```
-cortex plugin install zozo123/sandboxed-shell/plugins/islo
+cortex plugin install zozo123/sandboxed-shell/plugins/sandboxed-shell
 ```
 
-For one session only, without installing: `cortex --plugin-dir zozo123/sandboxed-shell/plugins/islo`.
+For one session only, without installing: `cortex --plugin-dir zozo123/sandboxed-shell/plugins/sandboxed-shell`.
 
-Setup, settings and the team setup: [plugins/islo/SETUP.md](plugins/islo/SETUP.md).
+Setup, settings and the team setup: [plugins/sandboxed-shell/SETUP.md](plugins/sandboxed-shell/SETUP.md).
 
 ### Claude Code (plugin)
 
@@ -35,11 +35,10 @@ On Claude Code older than 2.1.275, add the marketplace first:
 `/plugin marketplace add zozo123/sandboxed-shell`, then
 `/plugin install sandboxed-shell@sandboxed-shell`.
 
-### A sandbox backend
+### OpenShell
 
 Install [OpenShell](https://docs.nvidia.com/openshell/latest/) and start a gateway
-(`openshell status` should say Connected). For cloud sandboxes, install the Islo CLI, run
-`islo login`, and set `{"backend": "islo"}` in `~/.config/sandboxed-shell/config.json`.
+(`openshell status` should say Connected).
 
 ## Run CoCo itself inside OpenShell
 
@@ -87,8 +86,7 @@ sandbox can read it.
 - 61 unit tests in CI on Linux and macOS, Python 3.9 and 3.14. They run 32 command strings,
   19 of them injection attempts, through sh, bash, zsh, dash and ksh, with a canary file that
   must never appear on the host.
-- 39 end-to-end tests against real OpenShell 0.1.2 and 0.1.9 sandboxes, and the same 39
-  through the Islo driver. Run them with
+- 39 end-to-end tests against real OpenShell 0.1.2 and 0.1.9 sandboxes. Run them with
   `SBX_E2E=1 python3 -m unittest tests.test_e2e tests.test_mcp`.
 - `openshell/coco-in-openshell.sh` on OpenShell 0.1.2 and 0.1.9: under a minute from nothing to
   an answer, with `pypi.org` blocked and the Snowflake host reachable.
@@ -106,7 +104,7 @@ Measured in CoCo CLI 1.2.46:
   you need a guarantee.
 
 What is copied, what never comes back, and the full list of limits:
-[plugins/islo/README.md](plugins/islo/README.md).
+[plugins/sandboxed-shell/README.md](plugins/sandboxed-shell/README.md).
 
 ## License
 

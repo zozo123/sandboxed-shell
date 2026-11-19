@@ -10,7 +10,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-RUNNER = Path(__file__).resolve().parent.parent / "plugins" / "islo" / "bin" / "sbx.py"
+RUNNER = Path(__file__).resolve().parent.parent / "plugins" / "sandboxed-shell" / "bin" / "sbx.py"
 spec = importlib.util.spec_from_file_location("sbx", RUNNER)
 sbx = importlib.util.module_from_spec(spec)
 sys.modules["sbx"] = sbx
@@ -221,17 +221,18 @@ class Mirroring(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(self.root, "dir/node_modules/keep.js")))
 
     # -- configuration
-    def test_backend_is_local_unless_the_user_names_a_cloud_one(self):
+    def test_openshell_is_the_only_backend(self):
         real = shutil.which
         try:
-            shutil.which = lambda name: f"/bin/{name}"  # both CLIs installed
+            shutil.which = lambda name: f"/bin/{name}"
             self.assertEqual(sbx.pick_backend({"backend": "auto"}).name, "openshell")
-            self.assertEqual(sbx.pick_backend({"backend": "islo", "islo": {}}).name, "islo")
-            shutil.which = lambda name: "/bin/islo" if name == "islo" else None  # only the cloud CLI
+            self.assertEqual(sbx.pick_backend({"backend": "openshell"}).name, "openshell")
+            for other in ("cloud", "host", "local"):
+                with self.assertRaises(sbx.SbxError):
+                    sbx.pick_backend({"backend": other})
+            shutil.which = lambda name: None  # OpenShell not installed: fail, never fall back
             with self.assertRaises(sbx.SbxError):
                 sbx.pick_backend({"backend": "auto"})
-            with self.assertRaises(sbx.SbxError):
-                sbx.pick_backend({"backend": "host"})
         finally:
             shutil.which = real
 

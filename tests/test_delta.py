@@ -154,12 +154,12 @@ class RecoveryAndSettings(Base):
     def test_unknown_identity_at_start_is_not_proof_that_the_command_did_not_run(self):
         calls = {"run": 0, "sync": 0}
 
-        class Islo(sbx.Backend):
-            name, cli, trust_seconds = "islo", "true", 120
+        class Remote(sbx.Backend):  # a backend whose status call is remote and trusted for a while
+            name, cli, trust_seconds = "remote", "true", 120
 
             def phase(self, sandbox):
                 if threading.current_thread() is not threading.main_thread():
-                    raise sbx.SbxError("Islo is not reachable")
+                    raise sbx.SbxError("the sandbox service is not reachable")
                 return "ready", "id2"
 
         def sync(box):
@@ -171,7 +171,7 @@ class RecoveryAndSettings(Base):
         def run(box, command, session, rel, timeout_s, nonce):
             calls["run"] += 1
             return 0
-        self.patch(sbx, "pick_backend", lambda cfg: Islo({}))
+        self.patch(sbx, "pick_backend", lambda cfg: Remote({}))
         self.patch(sbx.Sandbox, "_bootstrap", lambda box, ident: box.state.update(
             sandbox_id=ident, helper=sbx.HELPER_VERSION, rules=digest(box.rules), meta="/m", remote_root="/r",
             local={}, ack=""))
@@ -182,7 +182,7 @@ class RecoveryAndSettings(Base):
         state = os.path.join(self.tmp, "state", "sbx-delta")
         os.makedirs(state)
         Path(state, "state.json").write_text(json.dumps({
-            "backend": "islo", "root": self.root, "ready": True, "last_ok": time.time(), "sandbox_id": "id1",
+            "backend": "remote", "root": self.root, "ready": True, "last_ok": time.time(), "sandbox_id": "id1",
             "helper": sbx.HELPER_VERSION, "rules": digest(self.rules), "local": {}, "ack": "",
             "meta": "/m", "remote_root": "/r"}))
         with self.assertRaises(sbx.SbxError) as caught:

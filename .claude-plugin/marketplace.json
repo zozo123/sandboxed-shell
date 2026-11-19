@@ -1,16 +1,16 @@
 {
   "name": "sandboxed-shell",
   "owner": {
-    "name": "Islo Labs"
+    "name": "zozo123"
   },
   "metadata": {
-    "description": "Run the agent's shell commands in a sandbox: a local OpenShell sandbox by default, or an Islo cloud sandbox."
+    "description": "Run the agent's shell commands in an NVIDIA OpenShell sandbox instead of on your machine."
   },
   "plugins": [
     {
       "name": "sandboxed-shell",
       "source": "./claude-code/sandboxed-shell",
-      "description": "Every Bash tool call runs in a sandbox that holds a copy of the project instead of on your machine. If no sandbox can be reached the command does not run."
+      "description": "Every Bash tool call runs in an NVIDIA OpenShell sandbox that holds a copy of the project, instead of on your machine. If no sandbox can be reached the command does not run."
     }
   ]
 }

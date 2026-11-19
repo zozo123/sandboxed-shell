@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """sbx: run an agent's shell command in a sandbox instead of on this machine.
 
-Standard library only (Python 3.9+). Backends: NVIDIA OpenShell (local) and Islo (cloud).
+Standard library only (Python 3.9+). Sandbox: NVIDIA OpenShell, on this machine or your own hosts.
 
   sbx.py run --root DIR [--session ID] [--timeout-ms N] -- 'COMMAND'
   sbx.py up | sync | status | doctor | down [--delete]   [--root DIR]
@@ -264,8 +264,7 @@ def config_path() -> Path:
 def load_config() -> dict:
     """User-level settings only. Nothing is read from the project directory, because a
     repository must not be able to switch its own sandbox off."""
-    cfg = {"backend": "auto", "exclude": [], "secrets": [], "allow": [], "max_file_mb": 200,
-           "openshell": {}, "islo": {}}
+    cfg = {"backend": "auto", "exclude": [], "secrets": [], "allow": [], "max_file_mb": 200, "openshell": {}}
     path = config_path()
     if path.is_file():
         try:
@@ -280,9 +279,8 @@ def load_config() -> dict:
     for key in ("exclude", "secrets", "allow"):
         if not isinstance(cfg[key], list) or not all(isinstance(item, str) for item in cfg[key]):
             raise SbxError(f"'{key}' in {path} must be a list of strings")
-    for key in ("openshell", "islo"):
-        if not isinstance(cfg[key], dict):
-            raise SbxError(f"'{key}' in {path} must be an object")
+    if not isinstance(cfg["openshell"], dict):
+        raise SbxError(f"'openshell' in {path} must be an object")
     limit = cfg["max_file_mb"]
     # NaN and Infinity are valid in Python's JSON; a limit below one byte would leave every file out.
     if isinstance(limit, bool) or not isinstance(limit, (int, float)) or not 1 / (1024 * 1024) <= limit <= 2 ** 40:
@@ -527,91 +525,15 @@ class OpenShell(Backend):
             raise SbxError(f"download from sandbox failed: {err.decode('utf-8', 'replace').strip()[-400:]}")
 
 
-class Islo(Backend):
-    """Islo: cloud sandboxes for coding agents (islo.dev)."""
-
-    name = "islo"
-    cli = "islo"
-    cwd = tempfile.gettempdir()  # keep the CLI away from any islo.yaml above the project
-    trust_seconds = 120  # listing sandboxes is a call to the Islo service
-
-    def phase(self, sandbox):
-        code, out, err = _capture(["islo", "ls", "-o", "json"], cwd=self.cwd, timeout=120)
-        if code != 0:
-            raise SbxError(f"Islo is not reachable (try 'islo login'): {(err or out).strip()[-400:]}")
-        try:
-            entries = json.loads(out)
-        except ValueError:
-            raise SbxError(f"unexpected answer from 'islo ls': {out[:200]}")
-        for entry in entries if isinstance(entries, list) else []:
-            if entry.get("name") == sandbox:
-                status = str(entry.get("status", "")).lower()
-                ident = str(entry.get("id") or entry.get("created_at") or "")
-                if status == "running":
-                    return "ready", ident
-                if status in ("paused", "stopped"):
-                    return "stopped", ident
-                if status in ("deleted", "deleting"):
-                    continue
-                if status in ("failed", "error"):
-                    return "error", ident
-                return "starting", ident
-        return "missing", ""
-
-    def create(self, sandbox):
-        argv = ["islo", "use", sandbox, "--no-config",
-                "--pause-after-idle", str(int(self.options.get("pause_after_idle", 600))),
-                "--auto-resume", "on_activity"]
-        if self.options.get("image"):
-            argv += ["--image", str(self.options["image"])]
-        if self.options.get("gateway_profile"):
-            argv += ["--gateway-profile", str(self.options["gateway_profile"])]
-        argv += ["--", "true"]
-        code, out, err = _capture(argv, cwd=self.cwd, timeout=900)
-        if code != 0:
-            raise SbxError(f"could not create Islo sandbox '{sandbox}': {(err or out).strip()[-600:]}")
-
-    def start(self, sandbox):
-        code, out, err = _capture(["islo", "resume", sandbox], cwd=self.cwd, timeout=300)
-        if code != 0:
-            raise SbxError(f"could not resume Islo sandbox '{sandbox}': {(err or out).strip()[-400:]}")
-
-    def stop(self, sandbox):
-        self._checked(["islo", "pause", sandbox], "pause", sandbox)
-
-    def delete(self, sandbox):
-        self._checked(["islo", "rm", sandbox], "delete", sandbox)
-
-    def exec_argv(self, sandbox, argv):
-        # --output json: without it the CLI prints "Reconnecting to existing sandbox ..." on stdout
-        # in front of the command's own output, on every call.
-        return ["islo", "use", sandbox, "--no-config", "--output", "json", "--"] + list(argv)
-
-    def put(self, sandbox, local, remote):
-        code, out, err = _capture(["islo", "cp", local, f"{sandbox}:{remote}"], cwd=self.cwd, timeout=1800)
-        if code != 0:
-            raise SbxError(f"upload to sandbox failed: {(err or out).strip()[-400:]}")
-
-    def get(self, sandbox, remote, local):
-        code, out, err = _capture(["islo", "cp", f"{sandbox}:{remote}", local], cwd=self.cwd, timeout=1800)
-        if code != 0:
-            raise SbxError(f"download from sandbox failed: {(err or out).strip()[-400:]}")
-
-
-BACKENDS = {"openshell": OpenShell, "islo": Islo}
+BACKENDS = {"openshell": OpenShell}
 
 
 def pick_backend(cfg: dict) -> Backend:
-    """Local first. A cloud backend is used only when the user asked for it by name,
-    so project files never leave this machine by default."""
+    """NVIDIA OpenShell is the sandbox. The Backend interface stays so another sandbox
+    can be added without touching the copying and safety code."""
     wanted = str(cfg.get("backend") or "auto").lower()
     if wanted == "auto":
-        if shutil.which("openshell"):
-            wanted = "openshell"
-        else:
-            raise SbxError(
-                "no sandbox backend is set up. Install NVIDIA OpenShell for a local sandbox, or set "
-                f"\"backend\": \"islo\" in {config_path()} to use Islo cloud sandboxes")
+        wanted = "openshell"
     if wanted not in BACKENDS:
         raise SbxError(f"unknown backend '{wanted}' (choose one of: {', '.join(sorted(BACKENDS))})")
     backend = BACKENDS[wanted](cfg.get(wanted) or {})

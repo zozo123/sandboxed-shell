@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "islo-sandbox": {
-      "type": "stdio",
-      "command": "python3",
-      "args": ["-I", "/opt/islo/plugins/islo/mcp/server.py"]
-    }
-  }
-}

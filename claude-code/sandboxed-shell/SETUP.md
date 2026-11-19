@@ -7,11 +7,9 @@ hooks; if it is not, every shell command is blocked.
 `<plugin directory>` below is the folder CoCo installed the plugin into, or the path you
 gave to `--plugin-dir`.
 
-## 1. Choose a backend
+## 1. Start OpenShell
 
-### OpenShell (local, the default)
-
-1. Install [OpenShell](https://docs.nvidia.com/openshell/latest/) and start a gateway.
+1. Install [NVIDIA OpenShell](https://docs.nvidia.com/openshell/latest/) and start a gateway.
 2. Check it from your terminal:
 
    ```
@@ -28,43 +26,25 @@ and no network access, and its system directories are read-only. To use your own
 set `openshell.from` to an image that has them and `openshell.policy` to a policy file
 that allows the hosts you need (see [Configuration](#3-configuration)).
 
-### Islo (cloud)
-
-1. Install the Islo CLI and sign in:
-
-   ```
-   islo login
-   ```
-
-2. Select the backend in `~/.config/sandboxed-shell/config.json`:
-
-   ```json
-   { "backend": "islo" }
-   ```
-
-With this backend the project directory, including `.git`, is copied to a sandbox run by
-Islo and stays there until you delete the sandbox. Sandboxes pause after 10 minutes
-without activity and resume on the next command.
-
 ## 2. Install the plugin
 
 From the project's repository, in your terminal:
 
 ```
-cortex plugin install zozo123/sandboxed-shell/plugins/islo
+cortex plugin install zozo123/sandboxed-shell/plugins/sandboxed-shell
 ```
 
 Or, in a CoCo session:
 
 ```
-Install the plugin at https://github.com/Snowflake-Labs/coco-skills/tree/main/plugins/islo
+Install the plugin at https://github.com/Snowflake-Labs/coco-skills/tree/main/plugins/sandboxed-shell
 ```
 
 Or start CoCo with a local copy, after checking it:
 
 ```
-cortex plugin validate /absolute/path/to/plugins/islo
-cortex --plugin-dir /absolute/path/to/plugins/islo
+cortex plugin validate /absolute/path/to/plugins/sandboxed-shell
+cortex --plugin-dir /absolute/path/to/plugins/sandboxed-shell
 ```
 
 Check the setup from your own terminal, in your project directory:
@@ -98,18 +78,13 @@ session from a shell that loads variables from the repository (direnv, a dotenv 
     "from": "registry.example.com/dev-image:latest",
     "policy": "policy.yaml",
     "providers": ["github"]
-  },
-  "islo": {
-    "image": "ghcr.io/islo-labs/islo-runner:latest",
-    "gateway_profile": "dev",
-    "pause_after_idle": 600
   }
 }
 ```
 
 | Key | Meaning | Default |
 |---|---|---|
-| `backend` | `openshell`, `islo` or `auto` (OpenShell when installed) | `auto` |
+| `backend` | `openshell` or `auto` (the same) | `auto` |
 | `exclude` | More names that are not copied in either direction | built-in list |
 | `secrets` | More name patterns that never leave your machine | built-in list |
 | `allow` | Names to copy even though a built-in list matches them | none |
@@ -117,19 +92,17 @@ session from a shell that loads variables from the repository (direnv, a dotenv 
 | `permission` | `allow` approves rewritten commands without a prompt. `ask` asks for a prompt on every command. Unset keeps your normal permission flow | unset |
 | `openshell.gateway` | Gateway name to use | the active gateway |
 | `openshell.from`, `openshell.policy`, `openshell.providers` | Image, policy file and credential providers for new sandboxes. A relative policy path is read next to the settings file | OpenShell defaults |
-| `islo.image`, `islo.gateway_profile`, `islo.pause_after_idle` | Image, gateway profile and idle pause (seconds) for new sandboxes | Islo defaults, 600 |
 
 Names match at any depth and ignore letter case. Unknown keys are ignored. A wrong type
-for `exclude`, `secrets`, `allow`, `max_file_mb`, `openshell` or `islo` is reported as a
-settings error, and commands return 125 until it is fixed. Values inside `openshell` and
-`islo` are not checked. A `permission` value other than `allow` or `ask` is ignored.
+for `exclude`, `secrets`, `allow`, `max_file_mb` or `openshell` is reported as a settings
+error, and commands return 125 until it is fixed. Values inside `openshell` are not
+checked. A `permission` value other than `allow` or `ask` is ignored.
 
 Set `"permission": "allow"` only if you accept that every shell command the agent issues
 is approved without a prompt.
 
 Changes to `exclude`, `secrets`, `allow` and `max_file_mb` apply from the next command.
-Image, policy, providers, gateway profile and idle pause are set when a sandbox is
-created. After changing one of those, delete the sandbox (`sbx.py down --delete`); the
+Image, policy and providers are set when a sandbox is created. After changing one of those, delete the sandbox (`sbx.py down --delete`); the
 next command creates a new one.
 
 Environment variables for one-off use: `SBX_BACKEND`, `SBX_CONFIG` (path of the settings
@@ -141,10 +114,12 @@ it is readable by you only). The runner also follows `XDG_CONFIG_HOME` (settings
 
 ### Snowflake credentials for commands in the sandbox
 
-Do not copy a password or token into the sandbox. OpenShell providers and Islo gateway
-profiles can add a credential to outgoing requests, so the stored secret stays outside
-the sandbox. Neither ships a Snowflake profile, and we have not tested `snow` or `dbt`
-this way. A command that logs in to Snowflake still receives a session token it can use.
+Do not copy a password or token into the sandbox. An OpenShell provider keeps the stored
+secret in the gateway and gives the sandbox a placeholder. The project repository has a
+Snowflake provider profile, tested with CoCo itself running inside OpenShell
+(`openshell/` in https://github.com/zozo123/sandboxed-shell). It does not work for `snow`
+or `dbt`, which compress their sign-in request. A command that logs in to Snowflake still
+receives a session token it can use.
 
 `profiles.yml` and `connections.toml` are not copied by default. If your `profiles.yml`
 reads its credentials from environment variables and holds no secret, add it to `allow`.
@@ -160,12 +135,8 @@ python3 <plugin directory>/bin/sbx.py down             # stop the sandbox, keep 
 python3 <plugin directory>/bin/sbx.py down --delete    # remove it; the next command starts fresh
 ```
 
-`down` acts on the backend that is selected now and reports an error if the backend
-refuses. If you used both backends, run it once for each, for example
-`SBX_BACKEND=islo python3 <plugin directory>/bin/sbx.py down --delete`.
-
-With OpenShell the runner checks the sandbox before every command. With Islo it trusts a
-successful command for two minutes before asking the service again.
+`down` reports an error if OpenShell refuses. The runner checks the sandbox before every
+command.
 
 ## Enforce it for a team
 
@@ -176,7 +147,7 @@ an administrator can combine two documented CoCo controls:
    [`managed/managed-settings.example.json`](managed/managed-settings.example.json).
 2. **Deploy the bundled MCP server** to every user through `files.mcpFile`. See
    [`managed/mcp.example.json`](managed/mcp.example.json). Copy the plugin folder to a
-   root-owned path on each device (the example uses `/opt/islo/plugins/islo`); the server
+   root-owned path on each device (the example uses `/opt/sandboxed-shell`); the server
    needs `mcp/server.py` and `bin/sbx.py` in their places. The `mcpFile` path in the
    example is for macOS; on Linux set it to where you put the file, for example
    `/etc/cortex/mcp.json`.
@@ -212,14 +183,13 @@ Managed settings file locations: `/Library/Application Support/Cortex/managed-se
 
 | What you see | Cause | What to do |
 |---|---|---|
-| `exit code 125` and "no sandbox backend is set up" | Neither backend is installed or selected | Install OpenShell, or set `"backend": "islo"` |
+| `exit code 125` and "the 'openshell' command is not installed" | OpenShell is not installed or not on `PATH` | Install OpenShell and start a gateway |
 | `OpenShell is not reachable` | No gateway is running, or the wrong one is active | `openshell status`; set `openshell.gateway` |
 | `OpenShell is not reachable` from `sandbox_exec` only | CoCo starts MCP servers without your environment variables | Set `OPENSHELL_GATEWAY` (and `XDG_CONFIG_HOME` if you use one) in the server's `env` block |
 | A command rule such as `bash(git *)` stopped matching | CoCo checks rules against the rewritten command | Allow or deny the whole `bash` tool, or use the team setup |
 | `is your home directory or a parent of it` | The session was started in your home directory | Start it inside a project directory |
-| `You're out of credits` (Islo) | The Islo organisation has no credit | Switch to OpenShell, or add credit to the Islo organisation |
-| `command not found` for a tool you have locally | The sandbox is a separate Linux machine | Use an image that has the tool (`openshell.from`, `islo.image`) |
-| Network calls fail in the sandbox | The sandbox policy denies the destination | Add it to your OpenShell policy or Islo gateway profile |
+| `command not found` for a tool you have locally | The sandbox is a separate Linux machine | Use an image that has the tool (`openshell.from`) |
+| Network calls fail in the sandbox | The sandbox policy denies the destination | Add it to your OpenShell policy |
 | A file did not appear locally | Its name is on a not-copied list, or the change was refused | For refused changes the runner prints up to eight paths. For names on the not-copied lists it prints nothing. Rename the file, or edit it with the edit tool |
 | "the sandbox was replaced while the command was running" | The sandbox was deleted during a command | Run the command again if that is safe |
 | "the command is longer than 100000 bytes" | One command cannot be passed as a single argument | Put it in a script file in the project and run that |
@@ -228,9 +198,9 @@ Managed settings file locations: `/Library/Application Support/Cortex/managed-se
 ## Remove
 
 ```
-python3 <plugin directory>/bin/sbx.py down --delete    # in each project you used, for each backend
-/plugin disable islo
+python3 <plugin directory>/bin/sbx.py down --delete    # in each project you used
+/plugin disable sandboxed-shell
 rm -rf ~/.cache/sandboxed-shell ~/.config/sandboxed-shell
 ```
 
-Use `/plugin uninstall islo` instead of `disable` if you installed the plugin yourself.
+Use `/plugin uninstall sandboxed-shell` instead of `disable` if you installed the plugin yourself.

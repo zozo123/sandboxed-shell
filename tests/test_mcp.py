@@ -9,7 +9,7 @@ import time
 import unittest
 from pathlib import Path
 
-SERVER = Path(__file__).resolve().parent.parent / "plugins" / "islo" / "mcp" / "server.py"
+SERVER = Path(__file__).resolve().parent.parent / "plugins" / "sandboxed-shell" / "mcp" / "server.py"
 RUNNER = SERVER.parent.parent / "bin" / "sbx.py"
 LIVE = os.environ.get("SBX_E2E") == "1"
 

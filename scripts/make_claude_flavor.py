@@ -5,10 +5,6 @@ The two CLIs share the hook contract. They differ in three names: the manifest
 directory (.claude-plugin), the plugin-root variable (CLAUDE_PLUGIN_ROOT) and the
 shell tool's name ("Bash"). The code is copied unchanged.
 
-The plugin is named `sandboxed-shell` here, not `islo`: Islo's Claude Code marketplace
-(islo-labs/skills) already ships a plugin named `islo`, and two plugins with one name
-would share the `islo:` skill prefix.
-
   python3 scripts/make_claude_flavor.py [OUTPUT_DIR]     default: dist/claude-code/sandboxed-shell
 """
 import json
@@ -17,13 +13,13 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-SOURCE = REPO / "plugins" / "islo"
+SOURCE = REPO / "plugins" / "sandboxed-shell"
 NAME = "sandboxed-shell"
 DESCRIPTION = (
-    "Runs the agent's shell commands in a sandbox that holds a copy of the project instead of on your "
-    "machine. Local with OpenShell by default; Islo cloud sandboxes if you select them. If no sandbox can "
-    "be reached the command does not run (exit code 125). Claude Code on macOS and Linux. Prereqs: python3 "
-    "(3.9+) and either the openshell CLI with a reachable gateway or the islo CLI, signed in. See SETUP.md."
+    "Runs the agent's shell commands in an NVIDIA OpenShell sandbox that holds a copy of the project, "
+    "instead of on your machine. If no sandbox can be reached the command does not run (exit code 125). "
+    "Claude Code on macOS and Linux. Prereqs: python3 (3.9+) and the openshell CLI with a reachable "
+    "gateway. See SETUP.md."
 )
 
 
@@ -35,7 +31,7 @@ def build(target: Path) -> Path:
     manifest = json.loads((SOURCE / ".cortex-plugin" / "plugin.json").read_text())
     manifest["name"] = NAME
     manifest["description"] = DESCRIPTION
-    manifest["homepage"] = "https://islo.dev"
+    manifest["homepage"] = "https://github.com/zozo123/sandboxed-shell"
     manifest["repository"] = "https://github.com/zozo123/sandboxed-shell"
     manifest["license"] = "Apache-2.0"
     (target / ".claude-plugin").mkdir()

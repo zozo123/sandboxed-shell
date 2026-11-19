@@ -1,16 +1,19 @@
-# Islo sandboxed shell
+# Sandboxed shell
 
-Runs the agent's shell commands in a sandbox instead of on your machine. Contributed by Islo.
+Runs the agent's shell commands in an [NVIDIA OpenShell](https://docs.nvidia.com/openshell/latest/)
+sandbox instead of on your machine.
 
 Shell commands that an agent runs have the same access to your machine as you do. With
 this plugin they run in a sandbox that holds a copy of the project directory and nothing
-else from your machine.
+else from your machine. OpenShell is open source (Apache-2.0) and runs on your machine or
+your own hosts, so the project does not leave them.
 
-CoCo CLI has its own ways to do this. `/sandbox` (experimental) restricts commands on
-your machine, and `cortex --cloud` runs tools in a Snowflake-managed container on a
-mounted workspace. This plugin is for people who already use OpenShell or Islo and want
-the agent's commands to run there while they work on a local checkout. It does not
-replace either Snowflake feature.
+CoCo CLI has its own ways to do this. `/sandbox` (experimental) runs commands under
+operating-system restrictions or in a container on your machine, and `cortex --cloud` runs
+tools in a Snowflake-managed container on a mounted workspace. This plugin is for people
+who want the agent's commands to run in an OpenShell sandbox, with OpenShell's file,
+network and process policy, while they work on a local checkout. It does not replace
+either Snowflake feature.
 
 ## How it works
 
@@ -28,17 +31,13 @@ runner has no code path that runs a command on your machine. CoCo itself has one
 hook does not answer within its time limit, CoCo runs the original command (see
 [What is not protected](#what-is-not-protected)).
 
-## Backends
+## Where commands run
 
-| Backend | Where commands run | When it is used |
-|---|---|---|
-| `openshell` | On your machine or your own hosts, in an [OpenShell](https://docs.nvidia.com/openshell/latest/) sandbox (open source, Apache-2.0). A policy file sets which files, network destinations and processes a command may use. | By default, when the `openshell` CLI is installed |
-| `islo` | In an [Islo](https://islo.dev) cloud sandbox. Islo's gateway controls which hosts the sandbox can reach and can add credentials to requests, so the sandbox does not hold them. | Only when you set `"backend": "islo"` in the settings file or `SBX_BACKEND=islo` in the environment |
-
-With OpenShell, files go to the machine that runs your OpenShell gateway. With the `islo`
-backend, the project directory, including `.git`, is copied to a sandbox run by Islo. The
-copy stays there until you delete the sandbox with `sbx.py down --delete`. Nothing is sent
-to Islo unless you select that backend.
+In an OpenShell sandbox managed by your OpenShell gateway, on your machine or on hosts you
+run. An OpenShell policy file sets which files, network destinations and processes a
+command may use; the default policy allows no network at all. Project files go only to the
+machine that runs your gateway, and the copy stays there until you delete the sandbox with
+`sbx.py down --delete`. The plugin itself makes no network calls.
 
 ## What stays on your machine
 
@@ -60,8 +59,8 @@ to Islo unless you select that backend.
   other way, for example in an `ssh://` URL or in `config.worktree`, is copied as it is.
 
 dbt users: `profiles.yml` is on the list. Give the sandbox its Snowflake connection
-through an OpenShell provider or an Islo gateway profile, or set `"allow":
-["profiles.yml"]` when the file holds no secret.
+through an OpenShell provider, or set `"allow": ["profiles.yml"]` when the file holds no
+secret.
 
 ## What comes back, and what never does
 
@@ -115,10 +114,10 @@ paths of a command. A deletion it does not apply is not printed.
   not enable the plugin there. CoCo Desktop is untested.
 - `python3` 3.9 or newer, on the `PATH` of the shell CoCo uses to run hooks. No Python
   packages are needed.
-- One backend: the `openshell` CLI with a reachable gateway, or the `islo` CLI, signed in.
+- The `openshell` CLI with a reachable gateway (`openshell status` says Connected).
 - In the sandbox image: `bash`, GNU coreutils 8.25 or newer, GNU `find` and `xargs`
-  (findutils), GNU `sed`, GNU `tar`, and `ps` from procps. The default OpenShell and Islo
-  images have them. Alpine and other BusyBox images do not work as they are.
+  (findutils), GNU `sed`, GNU `tar`, and `ps` from procps. The default OpenShell image has
+  them. Alpine and other BusyBox images do not work as they are.
 
 The default OpenShell sandbox is a minimal Ubuntu 24.04 with no `python3`, no `git` and no
 network access. To use your own tools, point the plugin at an image that has them and a
@@ -126,16 +125,17 @@ policy that allows the hosts you need ([SETUP.md](SETUP.md#3-configuration)).
 
 ## Quick start
 
-In a CoCo session:
+In your terminal:
 
 ```
-Install the plugin at https://github.com/Snowflake-Labs/coco-skills/tree/main/plugins/islo
+cortex plugin install zozo123/sandboxed-shell/plugins/sandboxed-shell
+cortex plugin validate sandboxed-shell
 ```
 
-Or, from a clone of that repository:
+Or, in a CoCo session:
 
 ```
-cortex --plugin-dir /absolute/path/to/coco-skills/plugins/islo
+Install the plugin at https://github.com/Snowflake-Labs/coco-skills/tree/main/plugins/sandboxed-shell
 ```
 
 Then, in your own terminal, from your project directory:
@@ -175,7 +175,9 @@ machine is. Configuration and the team setup are in [SETUP.md](SETUP.md).
   creates outside the project stay between commands. If the sandbox was stopped, it is
   started again. If it was replaced while a command was running, the call returns 125 and
   the command is not run a second time.
-- With the Islo backend, Islo limits each output stream of one command to its last 1 MiB.
+- To run CoCo itself inside OpenShell, with your Snowflake token kept in the OpenShell
+  gateway rather than in the sandbox, see `openshell/` in the
+  [project repository](https://github.com/zozo123/sandboxed-shell).
 
 ## Tested
 
@@ -194,11 +196,7 @@ file checks that none of them runs on the host.
 Mac. The plugin adds about 0.4 s to a command. The first command in a project of 300 files takes
 1.7 s. Each command scans the project, so large repositories cost more.
 
-The Islo backend passes the same 39 tests against a stand-in for the `islo` CLI. A run on
-the Islo service is still to come.
-
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
-
-By Islo · [Documentation](https://docs.islo.dev/overview) · [Privacy](https://islo.dev/privacy-policy/) · [Terms](https://islo.dev/terms-of-service/)
+Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Source, tests and issues:
+https://github.com/zozo123/sandboxed-shell.

@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-PLUGIN = REPO / "plugins" / "islo"
+PLUGIN = REPO / "plugins" / "sandboxed-shell"
 
 
 @dataclass

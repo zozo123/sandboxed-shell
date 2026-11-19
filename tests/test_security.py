@@ -159,7 +159,7 @@ class WayOut(Base):
         self.assertIn("url = ssh://git@github.com/o/r.git", top)
 
     def test_the_home_directory_is_not_a_project(self):
-        cfg = {"backend": "openshell", "exclude": [], "secrets": [], "openshell": {}, "islo": {}}
+        cfg = {"backend": "openshell", "exclude": [], "secrets": [], "openshell": {}}
         env = {"HOME": self.root, "SBX_STATE_DIR": os.path.join(self.tmp, "state")}
         with mock.patch.dict(os.environ, env):
             for root in (self.root, self.tmp, "/"):
