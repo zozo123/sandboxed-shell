@@ -18,9 +18,10 @@ Snowflake's CoCo CLI and with Claude Code. The sandbox is local with
 ### CoCo CLI (plugin)
 
 ```
-git clone https://github.com/zozo123/sandboxed-shell
-cortex --plugin-dir "$PWD/sandboxed-shell/plugins/islo"
+cortex plugin install zozo123/sandboxed-shell/plugins/islo
 ```
+
+For one session only, without installing: `cortex --plugin-dir zozo123/sandboxed-shell/plugins/islo`.
 
 Setup, settings and the team setup: [plugins/islo/SETUP.md](plugins/islo/SETUP.md).
 

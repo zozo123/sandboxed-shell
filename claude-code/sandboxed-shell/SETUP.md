@@ -48,16 +48,23 @@ without activity and resume on the next command.
 
 ## 2. Install the plugin
 
-In a CoCo session:
+From the project's repository, in your terminal:
+
+```
+cortex plugin install zozo123/sandboxed-shell/plugins/islo
+```
+
+Or, in a CoCo session:
 
 ```
 Install the plugin at https://github.com/Snowflake-Labs/coco-skills/tree/main/plugins/islo
 ```
 
-Or start CoCo with a clone of the repository:
+Or start CoCo with a local copy, after checking it:
 
 ```
-cortex --plugin-dir /absolute/path/to/coco-skills/plugins/islo
+cortex plugin validate /absolute/path/to/plugins/islo
+cortex --plugin-dir /absolute/path/to/plugins/islo
 ```
 
 Check the setup from your own terminal, in your project directory:
