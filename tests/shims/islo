@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+"""Stand-in for the `islo` CLI, backed by a local OpenShell sandbox.
+
+It exists so the Islo driver can be exercised end to end on a machine without Islo
+credits. It reproduces the behaviour read from the islo CLI's source (crates/cli
+commands use_cmd.rs, ls.rs, cp.rs and crates/files layout.rs):
+
+  islo ls -o json                    -> [{"id", "name", "status"}]
+  islo use NAME [flags] -- ARGV...   -> creates the sandbox if needed; passes ARGV as a
+                                        vector; gives the command NO stdin; relays stdout
+                                        and stderr as text; on a non-zero exit prints
+                                        "Exit code: N" to stderr and exits N
+  islo cp SRC DST                    -> one file to or from an exact path (NAME:PATH)
+  islo resume | pause | rm NAME
+
+It is a test double, not the product: a run against the real service still has to happen.
+"""
+import json
+import subprocess
+import sys
+import time
+
+OS = ["openshell"]
+
+
+def osh(*args, **kwargs):
+    kwargs.setdefault("stdin", subprocess.DEVNULL)
+    return subprocess.run(OS + list(args), **kwargs)
+
+
+def phase(name):
+    done = osh("sandbox", "get", name, "-o", "json", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if done.returncode != 0:
+        return None, ""
+    info = json.loads(done.stdout)
+    return info.get("phase"), info.get("id", "")
+
+
+def wait_ready(name):
+    for _ in range(120):
+        if phase(name)[0] == "Ready":
+            return
+        time.sleep(0.5)
+    sys.exit(f"Error: sandbox {name} did not become ready")
+
+
+def main(argv):
+    command = argv[0]
+    if command == "ls":
+        table = osh("sandbox", "list", stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout.decode()
+        entries = []
+        for line in table.splitlines()[1:]:
+            parts = line.split()
+            if len(parts) >= 2 and parts[0] != "No":
+                state, ident = phase(parts[0])
+                # A broken sandbox is reported as "failed", as the Islo service does, so the driver
+                # stops waiting at once instead of treating it as still being created.
+                status = {"Ready": "running", "Stopped": "paused", "Error": "failed", "Failed": "failed",
+                          "Completed": "failed"}.get(state, "creating")
+                entries.append({"id": ident, "name": parts[0], "status": status})
+        print(json.dumps(entries))
+        return 0
+    if command == "use":
+        name = argv[1]
+        split = argv.index("--")
+        remote = argv[split + 1:]
+        state, _ = phase(name)
+        flags = argv[2:split]
+        as_json = any(flags[i] in ("-o", "--output") and flags[i + 1:i + 2] == ["json"] for i in range(len(flags)))
+        if state is not None and not as_json:  # output::info() is println!, silent only with --output json
+            print(("✓ Sandbox '%s' resumed" if state == "Stopped" else "→ Reconnecting to existing sandbox '%s' (running)") % name, flush=True)
+        if state is None:
+            made = osh("sandbox", "create", "--name", name, "--detach", "--no-tty", "--no-auto-providers",
+                       "--", "sleep", "infinity", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if made.returncode != 0:
+                sys.stderr.write(made.stderr.decode("utf-8", "replace"))
+                return 1
+            wait_ready(name)
+        elif state == "Stopped":
+            osh("sandbox", "start", name, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            wait_ready(name)
+        proc = subprocess.Popen(OS + ["sandbox", "exec", "--name", name, "--no-tty", "--"] + remote,
+                                stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        import threading
+
+        def relay(source, target):  # text only, as the real CLI prints String data
+            for chunk in iter(lambda: source.read1(65536), b""):
+                target.write(chunk.decode("utf-8", "replace"))
+                target.flush()
+
+        workers = [threading.Thread(target=relay, args=(proc.stdout, sys.stdout)),
+                   threading.Thread(target=relay, args=(proc.stderr, sys.stderr))]
+        for worker in workers:
+            worker.start()
+        code = proc.wait()
+        for worker in workers:
+            worker.join()
+        if code != 0:
+            sys.stderr.write(f"\nExit code: {code}\n")
+        return code
+    if command == "cp":
+        source, target = argv[1], argv[2]
+        if ":" in target and not target.startswith("/"):
+            name, remote = target.split(":", 1)
+            # "sandbox upload": a pipe into exec is refused by OpenShell above 4 MiB
+            done = subprocess.run(OS + ["sandbox", "upload", name, source, remote, "--no-git-ignore"],
+                                  stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        else:
+            name, remote = source.split(":", 1)
+            with open(target, "wb") as handle:
+                done = subprocess.run(OS + ["sandbox", "exec", "--name", name, "--no-tty", "--", "cat", remote],
+                                      stdin=subprocess.DEVNULL, stdout=handle, stderr=subprocess.PIPE)
+        if done.returncode != 0:
+            sys.stderr.write(done.stderr.decode("utf-8", "replace"))
+        return done.returncode
+    if command in ("resume", "pause", "rm"):
+        verb = {"resume": "start", "pause": "stop", "rm": "delete"}[command]
+        done = osh("sandbox", verb, argv[1], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        if command == "resume" and done.returncode == 0:
+            wait_ready(argv[1])
+        return done.returncode
+    sys.stderr.write(f"islo shim: unsupported command {command}\n")
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

@@ -1,0 +1,15 @@
+{
+  "name": "sandboxed-shell",
+  "version": "0.1.0",
+  "description": "Runs the agent's shell commands in a sandbox that holds a copy of the project instead of on your machine. Local with OpenShell by default; Islo cloud sandboxes if you select them. If no sandbox can be reached the command does not run (exit code 125). Claude Code on macOS and Linux. Prereqs: python3 (3.9+) and either the openshell CLI with a reachable gateway or the islo CLI, signed in. See SETUP.md.",
+  "author": {
+    "name": "Islo Labs",
+    "url": "https://islo.dev"
+  },
+  "skills": [
+    "./skills"
+  ],
+  "homepage": "https://islo.dev",
+  "repository": "https://github.com/zozo123/sandboxed-shell",
+  "license": "Apache-2.0"
+}

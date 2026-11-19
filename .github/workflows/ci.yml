@@ -1,0 +1,35 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.9", "3.14"]
+        exclude:
+          - os: macos-latest
+            python: "3.9"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Shells for the quoting tests (sh, bash, zsh, dash, ksh)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zsh ksh dash
+      - name: Unit tests
+        run: python -m unittest tests.test_hook tests.test_local tests.test_security tests.test_rules tests.test_delta
+      - name: The Claude Code copy matches the plugin
+        run: |
+          python scripts/make_claude_flavor.py "$RUNNER_TEMP/flavour/sandboxed-shell" > /dev/null
+          diff -r -x __pycache__ "$RUNNER_TEMP/flavour/sandboxed-shell" claude-code/sandboxed-shell
